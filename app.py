@@ -1,6 +1,7 @@
 import re
 import os
 import math
+import base64
 from pathlib import Path
 from io import BytesIO
 import streamlit as st
@@ -723,6 +724,19 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None, offensive_dicts=None
         df_scores['duels_won_p90'] = duels_won_p90_list
         df_scores['int_xt_avg'] = int_xt_avg_list
         df_scores['funnel_p90'] = funnel_p90_list
+        def_actions_p90_l = []
+        def_att_p90_l = []
+        for _, row in df_scores.iterrows():
+            m = row["match"]
+            if m in defensive_dfs_dict:
+                d_st = compute_defensive_stats(defensive_dfs_dict[m], m)
+                def_actions_p90_l.append(d_st["total_actions_p90"])
+                def_att_p90_l.append(d_st["actions_attacking_p90"])
+            else:
+                def_actions_p90_l.append(0.0)
+                def_att_p90_l.append(0.0)
+        df_scores["def_actions_p90"] = def_actions_p90_l
+        df_scores["def_att_p90"] = def_att_p90_l
     else:
         df_scores['def_bonus'] = 0.0
         df_scores['duels_p90'] = 0.0
@@ -731,6 +745,8 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None, offensive_dicts=None
         df_scores['duels_won_p90'] = 0.0
         df_scores['int_xt_avg'] = 0.0
         df_scores['funnel_p90'] = 0.0
+        df_scores["def_actions_p90"] = 0.0
+        df_scores["def_att_p90"] = 0.0
     df_scores['pass_grade'] = df_scores['Grade'].round(1).copy()
     def _norm_def(s, lo, hi):
         clipped = s.clip(lower=lo, upper=hi)
@@ -941,7 +957,31 @@ def compute_offensive_stats(touches_df, duels_df, shots_df, match_name: str) -> 
     }
 
 # UI HELPERS
-_BLUR_STYLE = "filter:blur(7px);opacity:0.18;pointer-events:none;user-select:none;"
+_BLUR_BODY_STYLE = "filter:blur(6px);opacity:0.16;pointer-events:none;user-select:none;"
+_SGA_LOGO_B64 = None
+_SGA_LOGO_PATH = Path("sga data.png")
+
+
+def _get_sga_logo_b64():
+    global _SGA_LOGO_B64
+    if _SGA_LOGO_B64 is None:
+        if _SGA_LOGO_PATH.exists():
+            _SGA_LOGO_B64 = base64.b64encode(_SGA_LOGO_PATH.read_bytes()).decode()
+        else:
+            _SGA_LOGO_B64 = ""
+    return _SGA_LOGO_B64
+
+
+def _sga_logo_overlay_html():
+    logo = _get_sga_logo_b64()
+    if not logo:
+        return ""
+    return (
+        f'<img src="data:image/png;base64,{logo}" alt="SGA Data" '
+        f'style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);'
+        f'max-width:58%;max-height:72px;width:auto;height:auto;opacity:0.92;'
+        f'pointer-events:none;z-index:2">'
+    )
 
 
 def blur_image(img, radius=10):
@@ -985,8 +1025,7 @@ def _modern_card(title, border_color, items, comparison=False, blurred=False):
     accent = f"rgb({r},{g},{b})"
     grad = (f"linear-gradient(150deg, rgba({r},{g},{b},0.16) 0%, "
             f"rgba(24,24,38,0.55) 55%, rgba(16,16,26,0.80) 100%)")
-    blur = _BLUR_STYLE if blurred else ""
-    html = (f'<div style="{blur}position:relative;background:{grad};'
+    html = (f'<div style="position:relative;background:{grad};'
             f'border:1px solid rgba({r},{g},{b},0.30);border-radius:16px;'
             f'padding:16px 18px 12px 18px;margin-bottom:12px;'
             f'box-shadow:0 10px 26px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);'
@@ -999,6 +1038,11 @@ def _modern_card(title, border_color, items, comparison=False, blurred=False):
     html += (f'<span style="font-size:12px;font-weight:700;letter-spacing:1.2px;'
              f'text-transform:uppercase;color:#eef1f7">{title}</span>')
     html += '</div>'
+
+    body_open = '<div style="position:relative;min-height:88px">'
+    if blurred:
+        body_open += f'<div style="{_BLUR_BODY_STYLE}">'
+    body_html = ""
     for idx, item in enumerate(items):
         label = item[0]
         sub_lines = []
@@ -1025,15 +1069,20 @@ def _modern_card(title, border_color, items, comparison=False, blurred=False):
                                         "border-bottom:1px solid rgba(255,255,255,0.06)")
         title_attr = f' title="{tooltip}"' if tooltip else ""
         cursor = "cursor:help;" if tooltip else ""
-        html += f'<div style="{row_style}">'
-        html += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'
-        html += (f'<span style="font-size:12.5px;font-weight:600;color:#c7cdda;{cursor}"{title_attr}>{label}</span>')
-        html += (f'<span style="font-size:22px;font-weight:800;color:#ffffff;line-height:1.1;'
-                 f'white-space:nowrap">{value_html}{arrow}</span>')
-        html += '</div>'
+        body_html += f'<div style="{row_style}">'
+        body_html += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'
+        body_html += (f'<span style="font-size:12.5px;font-weight:600;color:#c7cdda;{cursor}"{title_attr}>{label}</span>')
+        body_html += (f'<span style="font-size:22px;font-weight:800;color:#ffffff;line-height:1.1;'
+                      f'white-space:nowrap">{value_html}{arrow}</span>')
+        body_html += '</div>'
         for sl in sub_lines:
-            html += f'<div style="text-align:right;font-size:11px;color:#8b93a7;margin-top:2px">{sl}</div>'
-        html += '</div>'
+            body_html += f'<div style="text-align:right;font-size:11px;color:#8b93a7;margin-top:2px">{sl}</div>'
+        body_html += '</div>'
+
+    if blurred:
+        html += body_open + body_html + '</div>' + _sga_logo_overlay_html() + '</div>'
+    else:
+        html += body_html
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
@@ -1041,12 +1090,17 @@ def section_card(title, border_color, items, blurred=False):
     if MODERN_CARDS:
         _modern_card(title, border_color, items, comparison=False, blurred=blurred)
         return
-    blur = _BLUR_STYLE if blurred else ""
     bg = _hex_to_rgba(border_color, 0.55)
     bd = _hex_to_rgba(border_color, 0.30)
-    html = f'<div style="{blur}background:{bg};border:1px solid {bd};border-radius:10px;padding:14px;margin-bottom:8px">'
-    html += f'<div style="font-size:15px;font-weight:800;color:#ffffff;margin-bottom:10px;letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px">{title}</div>'
-    html += f'<div style="opacity:0.88">'
+    html = (f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;'
+            f'padding:14px;margin-bottom:8px;position:relative;overflow:hidden">')
+    html += (f'<div style="font-size:15px;font-weight:800;color:#ffffff;margin-bottom:10px;'
+             f'letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);'
+             f'padding-bottom:8px">{title}</div>')
+    if blurred:
+        html += f'<div style="position:relative;min-height:80px"><div style="{_BLUR_BODY_STYLE}">'
+    else:
+        html += '<div style="opacity:0.88">'
     for idx, item in enumerate(items):
         label = item[0]
         value = item[1]
@@ -1069,19 +1123,27 @@ def section_card(title, border_color, items, blurred=False):
         html += '</div>'
         html += '</div>'
         html += '</div>'
-    html += '</div></div>'
+    html += '</div>'
+    if blurred:
+        html += _sga_logo_overlay_html() + '</div>'
+    html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 def cmp_section_card(title, border_color, items, blurred=False):
     if MODERN_CARDS:
         _modern_card(title, border_color, items, comparison=True, blurred=blurred)
         return
-    blur = _BLUR_STYLE if blurred else ""
     bg = _hex_to_rgba(border_color, 0.55)
     bd = _hex_to_rgba(border_color, 0.30)
-    html = f'<div style="{blur}background:{bg};border:1px solid {bd};border-radius:10px;padding:14px;margin-bottom:8px">'
-    html += f'<div style="font-size:15px;font-weight:800;color:#ffffff;margin-bottom:10px;letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px">{title}</div>'
-    html += f'<div style="opacity:0.88">'
+    html = (f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;'
+            f'padding:14px;margin-bottom:8px;position:relative;overflow:hidden">')
+    html += (f'<div style="font-size:15px;font-weight:800;color:#ffffff;margin-bottom:10px;'
+             f'letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);'
+             f'padding-bottom:8px">{title}</div>')
+    if blurred:
+        html += f'<div style="position:relative;min-height:80px"><div style="{_BLUR_BODY_STYLE}">'
+    else:
+        html += '<div style="opacity:0.88">'
     for idx, item in enumerate(items):
         label = item[0]
         val_game = item[1]
@@ -1109,7 +1171,10 @@ def cmp_section_card(title, border_color, items, blurred=False):
         html += '</div>'
         html += '</div>'
         html += '</div>'
-    html += '</div></div>'
+    html += '</div>'
+    if blurred:
+        html += _sga_logo_overlay_html() + '</div>'
+    html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 # DRAW HELPERS (PITCH)
@@ -1516,24 +1581,32 @@ def draw_grade_chart(df_scores, grade_label="Combined Grade", avg_mode="Average"
 
 
 STATS_METRICS = {
-    "Total Passes": ("total_p90", "#00d2ff", ".1f", ""),
-    "Advanced Passes": ("adv_p90", "#22d3ee", ".2f", ""),
-    "Progressive Passes": ("prog_p90", "#10b981", ".2f", ""),
-    "Final Third Passes": ("f3_p90", "#8b5cf6", ".2f", ""),
-    "Pass Impact Value": ("xt_p90", "#f59e0b", ".3f", ""),
-    "% Positive Impact": ("pos_pct", "#f43f5e", ".1f", "%"),
-    "Defensive Duels": ("duels_p90", "#f97316", ".1f", ""),
-    "Interceptions": ("interceptions_p90", "#8b5cf6", ".1f", ""),
-    "Touches": ("touches_p90", "#38bdf8", ".1f", ""),
-    "Offensive Duels": ("off_duels_p90", "#34d399", ".1f", ""),
-    "Shots": ("shots_p90", "#fbbf24", ".2f", ""),
+    "Total Passes": ("total_p90", "#00d2ff", ".1f", "", False),
+    "Successful %": ("accuracy_pct", "#00d2ff", ".1f", "%", False),
+    "Defensive Actions": ("def_actions_p90", "#70ad47", ".1f", "", False),
+    "Actions in Opp. Field": ("def_att_p90", "#70ad47", ".1f", "", False),
+    "Touches": ("touches_p90", "#38bdf8", ".1f", "", False),
+    "Final Third Touches": ("f3_touches_p90", "#38bdf8", ".1f", "", False),
+    "Advanced Passes": ("adv_p90", "#22d3ee", ".2f", "", True),
+    "Progressive Passes": ("prog_p90", "#10b981", ".2f", "", True),
+    "Final Third Passes": ("f3_p90", "#8b5cf6", ".2f", "", True),
+    "Pass Impact Value": ("xt_p90", "#f59e0b", ".3f", "", True),
+    "% Positive Impact": ("pos_pct", "#f43f5e", ".1f", "%", True),
+    "Defensive Duels": ("duels_p90", "#f97316", ".1f", "", True),
+    "Interceptions": ("interceptions_p90", "#8b5cf6", ".1f", "", True),
+    "Offensive Duels": ("off_duels_p90", "#34d399", ".1f", "", True),
+    "Shots": ("shots_p90", "#fbbf24", ".2f", "", True),
 }
+STATS_UNLOCKED = [k for k, v in STATS_METRICS.items() if not v[4]]
+STATS_LOCKED = [k for k, v in STATS_METRICS.items() if v[4]]
 
 
 def draw_metric_chart(df_scores, metric_label="Total Passes", avg_mode="Average"):
-    col, color, value_fmt, suffix = STATS_METRICS.get(metric_label, ("total_p90", "#00d2ff", ".1f", ""))
+    col, color, value_fmt, suffix, _locked = STATS_METRICS.get(
+        metric_label, ("total_p90", "#00d2ff", ".1f", "", False)
+    )
     fig = go.Figure()
-    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
+    x_labels = list(df_scores["match"])
     y = df_scores[col]
     rgb = tuple(int(color.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4))
     fig.add_trace(go.Scatter(
@@ -1712,20 +1785,6 @@ with tab_graf:
     )
 
     df_scores = compute_match_scores(dfs_by_match, defensive_dfs_by_match, OFF_DICTS)
-    if not df_scores.empty:
-        st.markdown("### Stats")
-        scol1, scol2 = st.columns(2)
-        with scol1:
-            metric_choice = st.selectbox(
-                "Metric", list(STATS_METRICS.keys()), index=0, key="stats_metric"
-            )
-        with scol2:
-            stats_avg_mode = st.radio(
-                "Reference Line", ["Average", "Moving Average"],
-                index=0, horizontal=True, key="stats_avg_mode"
-            )
-        fig_metric = draw_metric_chart(df_scores, metric_choice, stats_avg_mode)
-        st.plotly_chart(fig_metric, use_container_width=True)
 
     st.markdown("### Overall Performance Summary")
     if num_matches > 0:
@@ -1847,6 +1906,26 @@ with tab_graf:
         st.markdown("", unsafe_allow_html=True)
 
         if not df_scores.empty:
+            st.markdown("### Stats")
+            scol1, scol2 = st.columns(2)
+            with scol1:
+                metric_choice = st.selectbox(
+                    "Metric", STATS_UNLOCKED, index=0, key="stats_metric"
+                )
+            with scol2:
+                stats_avg_mode = st.radio(
+                    "Reference Line", ["Average", "Moving Average"],
+                    index=0, horizontal=True, key="stats_avg_mode"
+                )
+            locked_line = " · ".join(f"🔒 {m}" for m in STATS_LOCKED)
+            st.markdown(
+                f'<div style="font-size:12px;color:#6b6b80;margin:4px 0 10px 0">{locked_line}</div>',
+                unsafe_allow_html=True,
+            )
+            fig_metric = draw_metric_chart(df_scores, metric_choice, stats_avg_mode)
+            st.plotly_chart(fig_metric, use_container_width=True)
+
+        if not df_scores.empty:
             st.markdown("### Grade per Match")
             gcol1, gcol2 = st.columns(2)
             with gcol1:
@@ -1966,17 +2045,17 @@ with tab_dash:
                 section_card("📋 Pass Overview", PASS_TONES[0], [
                     ("Total Passes", f"{s_game['total_p90']:.2f}"),
                     ("Successful %", f"{s_game['accuracy_pct']:.2f}%"),
-                ])
+                ], blurred=True)
             with col_s2:
                 section_card("📊 Advanced", PASS_TONES[1], [
                     ("Advanced Passes", f"{s_game['adv_p90']:.2f}"),
                     ("Advanced Acc %", f"{s_game['adv_acc_pct']:.2f}%", f"({s_real['adv_made']}/{s_real['adv_att']})"),
-                ])
+                ], blurred=True)
             with col_s3:
                 section_card("⚡ Impact", PASS_TONES[2], [
                     ("% Positive Impact", f"{s_game['pos_pct']:.2f}%"),
                     ("Pass Impact Value", f"{s_game['xt_p90']:.3f}"),
-                ])
+                ], blurred=True)
         else:
             with col_s1:
                 cmp_section_card("📋 Pass Overview", PASS_TONES[0], [
@@ -1984,7 +2063,7 @@ with tab_dash:
                      f"{s_game['total_p90']:.1f}", f"{s_avg['total_p90']:.1f}", ""),
                     ("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
                      f"{s_game['accuracy_pct']:.1f}%", f"{s_avg['accuracy_pct']:.1f}%", ""),
-                ])
+                ], blurred=True)
             with col_s2:
                 cmp_section_card("📊 Advanced", PASS_TONES[1], [
                     ("Advanced Passes", s_game["adv_p90"], f"{s_avg['adv_p90']:.1f}",
@@ -1992,7 +2071,7 @@ with tab_dash:
                     ("Advanced Acc %", s_game["adv_acc_pct"], s_avg["adv_acc_pct"],
                      f"{s_game['adv_acc_pct']:.1f}%", f"{s_avg['adv_acc_pct']:.1f}%", "",
                      f"({s_real['adv_made']}/{s_real['adv_att']})"),
-                ])
+                ], blurred=True)
             with col_s3:
                 cmp_section_card("⚡ Impact", PASS_TONES[2], [
                     ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
@@ -2001,7 +2080,7 @@ with tab_dash:
                     ("Pass Impact Value", s_game["xt_p90"], s_avg["xt_p90"],
                      f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}",
                      "Calculation used to define the value of pass impact based on expected threat (xT) progression"),
-                ])
+                ], blurred=True)
 
     with sub_tab_def:
         st.markdown("### Match Filter")
@@ -2067,17 +2146,17 @@ with tab_dash:
                 section_card("🛡️ General", DEF_TONES[0], [
                     ("Defensive Actions", f"{d_game['total_actions_p90']:.2f}"),
                     ("Actions in Opp. Field", f"{d_game['actions_attacking_p90']:.2f}"),
-                ])
+                ], blurred=True)
             with col_ds2:
                 section_card("⚔️ Duels", DEF_TONES[1], [
                     ("Defensive Duels", f"{d_game['duels_p90']:.2f}"),
                     ("% Duels Won", f"{d_game['duels_won_pct']:.2f}%", f"({d_real['duels_won']}/{d_real['total_duels']})"),
-                ])
+                ], blurred=True)
             with col_ds3:
                 section_card("🛡️ Funnel Protection Actions", DEF_TONES[2], [
                     ("Funnel Protection Actions", f"{d_game['funnel_actions_p90']:.2f}"),
                     ("% FPA Successful", f"{d_game['funnel_success_pct']:.2f}%", f"({d_real['funnel_successful']}/{d_real['funnel_actions']})"),
-                ])
+                ], blurred=True)
         else:
             with col_ds1:
                 cmp_section_card("🛡️ General", DEF_TONES[0], [
@@ -2085,7 +2164,7 @@ with tab_dash:
                      f"{d_game['total_actions_p90']:.1f}", f"{d_avg['total_actions_p90']:.1f}", ""),
                     ("Actions in Opp. Field", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}",
                      f"{d_game['actions_attacking_p90']:.1f}", f"{d_avg['actions_attacking_p90']:.1f}", ""),
-                ])
+                ], blurred=True)
             with col_ds2:
                 cmp_section_card("⚔️ Duels", DEF_TONES[1], [
                     ("Defensive Duels", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}",
@@ -2093,7 +2172,7 @@ with tab_dash:
                     ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"],
                      f"{d_game['duels_won_pct']:.1f}%", f"{d_avg['duels_won_pct']:.1f}%", "",
                      f"({d_real['duels_won']}/{d_real['total_duels']})"),
-                ])
+                ], blurred=True)
             with col_ds3:
                 cmp_section_card("🛡️ Funnel Protection Actions", DEF_TONES[2], [
                     ("Funnel Protection Actions", d_game["funnel_actions_p90"], f"{d_avg['funnel_actions_p90']:.1f}",
@@ -2101,7 +2180,7 @@ with tab_dash:
                     ("% FPA Successful", d_game["funnel_success_pct"], d_avg["funnel_success_pct"],
                      f"{d_game['funnel_success_pct']:.1f}%", f"{d_avg['funnel_success_pct']:.1f}%", "",
                      f"({d_real['funnel_successful']}/{d_real['funnel_actions']})"),
-                ])
+                ], blurred=True)
 
     with sub_tab_off:
         st.markdown("### Match Filter")
@@ -2160,17 +2239,17 @@ with tab_dash:
                 section_card("📋 Overview", OFF_TONES[0], [
                     ("Touches", f"{o_game['touches_p90']:.2f}"),
                     ("Final Third Touches", f"{o_game['f3_touches_p90']:.2f}"),
-                ])
+                ], blurred=True)
             with col_os2:
                 section_card("⚔️ Offensive Duels", OFF_TONES[1], [
                     ("Offensive Duels", f"{o_game['off_duels_p90']:.2f}"),
                     ("% Duels Won", f"{o_game['off_duels_won_pct']:.2f}%", f"({o_real['off_duels_won']}/{o_real['off_duels']})"),
-                ])
+                ], blurred=True)
             with col_os3:
                 section_card("🥅 Shots", OFF_TONES[2], [
                     ("Shots", f"{o_game['shots_p90']:.2f}"),
                     ("Goals", f"{o_game['goals']:.2f}"),
-                ])
+                ], blurred=True)
         else:
             with col_os1:
                 cmp_section_card("📋 Overview", OFF_TONES[0], [
@@ -2178,7 +2257,7 @@ with tab_dash:
                      f"{o_game['touches_p90']:.1f}", f"{o_avg['touches_p90']:.1f}", ""),
                     ("Final Third Touches", o_game["f3_touches_p90"], f"{o_avg['f3_touches_p90']:.1f}",
                      f"{o_game['f3_touches_p90']:.1f}", f"{o_avg['f3_touches_p90']:.1f}", ""),
-                ])
+                ], blurred=True)
             with col_os2:
                 cmp_section_card("⚔️ Offensive Duels", OFF_TONES[1], [
                     ("Offensive Duels", o_game["off_duels_p90"], f"{o_avg['off_duels_p90']:.1f}",
@@ -2186,12 +2265,12 @@ with tab_dash:
                     ("% Duels Won", o_game["off_duels_won_pct"], o_avg["off_duels_won_pct"],
                      f"{o_game['off_duels_won_pct']:.1f}%", f"{o_avg['off_duels_won_pct']:.1f}%", "",
                      f"({o_real['off_duels_won']}/{o_real['off_duels']})"),
-                ])
+                ], blurred=True)
             with col_os3:
                 cmp_section_card("🥅 Shots", OFF_TONES[2], [
                     ("Shots", o_game["shots_p90"], f"{o_avg['shots_p90']:.1f}",
                      f"{o_game['shots_p90']:.1f}", f"{o_avg['shots_p90']:.1f}", ""),
                     ("Goals", o_game["goals"], o_avg["goals"],
                      f"{o_game['goals']:.0f}", f"{o_avg['goals']:.2f}", ""),
-                ])
+                ], blurred=True)
 
