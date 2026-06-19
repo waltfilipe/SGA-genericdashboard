@@ -1872,7 +1872,7 @@ with tab_graf:
 
         if is_all_summary:
             pass_main_1 = f"{total_passes_all}"
-            pass_sub_1 = f"Avg: {avg_total_p90:.1f} p90"
+            pass_sub_1 = f"Avg: {avg_total_p90:.1f}"
             pass_main_2 = f"{overall_acc_pct:.1f}%"
             pass_sub_2 = f"Avg: {avg_acc:.1f}%"
         else:
@@ -1884,19 +1884,19 @@ with tab_graf:
         st.markdown("### Passes")
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            section_card("📋 Overview", PASS_TONES[0], [
+            section_card("Overview", PASS_TONES[0], [
                 ("Passes p90" if not is_all_summary else "Passes", pass_main_1, pass_sub_1),
                 ("Successful %", pass_main_2, pass_sub_2),
             ])
         with col_s2:
-            section_card("📊 Advanced", PASS_TONES[1], [
+            section_card("Advanced", PASS_TONES[1], [
                 ("Advanced Passes p90", f"{s_pass['adv_p90']:.1f}", f"Total: {s_pass['adv_made']}",
                  "Sum of progressive and final-third passes"),
                 ("Advanced Acc %", f"{s_pass['adv_acc_pct']:.1f}%", f"({s_pass['adv_made']}/{s_pass['adv_att']})",
                  "Completion rate of progressive + final-third passes"),
             ], blurred=True)
         with col_s3:
-            section_card("⚡ Impact", PASS_TONES[2], [
+            section_card("Pass Impact", PASS_TONES[2], [
                 ("% Positive Impact", f"{s_pass['pos_pct']:.1f}%", f"Total: {s_pass['pos_count']}",
                  "Passes that generated a positive impact based on where they ended on the field"),
                 ("Pass Impact Value", f"{s_pass['xt_p90']:.3f}", f"Total: {s_pass['sum_dxt']:.3f}",
@@ -1922,9 +1922,9 @@ with tab_graf:
 
             if is_all_summary:
                 def_main_1 = f"{total_def_actions_all}"
-                def_sub_1 = f"Avg: {avg_def_actions_p90:.1f} p90"
+                def_sub_1 = f"Avg: {avg_def_actions_p90:.1f}"
                 def_main_2 = f"{total_def_att_all}"
-                def_sub_2 = f"Avg: {avg_def_att_p90:.1f} p90"
+                def_sub_2 = f"Avg: {avg_def_att_p90:.1f}"
             else:
                 def_main_1 = f"{s_def['total_actions_p90']:.1f}"
                 def_sub_1 = f"Total: {s_def['total_actions']}"
@@ -1934,17 +1934,17 @@ with tab_graf:
             st.markdown("### Defensive Actions")
             col_d1, col_d2, col_d3 = st.columns(3)
             with col_d1:
-                section_card("🛡️ General", DEF_TONES[0], [
+                section_card("Overview", DEF_TONES[0], [
                     ("Defensive Actions p90" if not is_all_summary else "Defensive Actions", def_main_1, def_sub_1),
                     ("Actions in Opp. Field p90" if not is_all_summary else "Actions in Opp. Field", def_main_2, def_sub_2),
                 ])
             with col_d2:
-                section_card("⚔️ Duels", DEF_TONES[1], [
+                section_card("Defensive Duels", DEF_TONES[1], [
                     ("Defensive Duels p90", f"{avg_duels_p90:.1f}", f"Total: {total_duels_all}"),
                     ("% Duels Won", f"{avg_duels_won_pct:.1f}%", f"({total_duels_won_all}/{total_duels_all})"),
                 ], blurred=True)
             with col_d3:
-                section_card("🛡️ Funnel Protection Actions", DEF_TONES[2], [
+                section_card("Funnel Protection Actions", DEF_TONES[2], [
                     ("Funnel Protection Actions p90", f"{avg_funnel_p90:.1f}", f"Total: {total_funnel_all}"),
                     ("% FPA Successful", f"{avg_funnel_success_pct:.1f}%", f"({total_funnel_success_all}/{total_funnel_all})"),
                 ], blurred=True)
@@ -1966,9 +1966,9 @@ with tab_graf:
 
             if is_all_summary:
                 off_main_1 = f"{total_touches_all}"
-                off_sub_1 = f"Avg: {avg_touches_p90:.1f} p90"
+                off_sub_1 = f"Avg: {avg_touches_p90:.1f}"
                 off_main_2 = f"{total_f3_touches_all}"
-                off_sub_2 = f"Avg: {avg_f3_touches_p90:.1f} p90"
+                off_sub_2 = f"Avg: {avg_f3_touches_p90:.1f}"
             else:
                 off_main_1 = f"{s_off['touches_p90']:.1f}"
                 off_sub_1 = f"Total: {s_off['touches']}"
@@ -1978,17 +1978,17 @@ with tab_graf:
             st.markdown("### Offensive Actions")
             col_o1, col_o2, col_o3 = st.columns(3)
             with col_o1:
-                section_card("📋 Overview", OFF_TONES[0], [
+                section_card("Overview", OFF_TONES[0], [
                     ("Touches p90" if not is_all_summary else "Touches", off_main_1, off_sub_1),
                     ("Final Third Touches p90" if not is_all_summary else "Final Third Touches", off_main_2, off_sub_2),
                 ])
             with col_o2:
-                section_card("⚔️ Offensive Duels", OFF_TONES[1], [
+                section_card("Offensive Duels", OFF_TONES[1], [
                     ("Offensive Duels p90", f"{avg_off_duels_p90:.1f}", f"Total: {total_off_duels_all}"),
                     ("% Duels Won", f"{avg_off_duels_won_pct:.1f}%", f"({total_off_duels_won_all}/{total_off_duels_all})"),
                 ], blurred=True)
             with col_o3:
-                section_card("🥅 Shots", OFF_TONES[2], [
+                section_card("Shots", OFF_TONES[2], [
                     ("Shots p90", f"{avg_shots_p90:.2f}", f"Total: {total_shots_all}"),
                     ("Goals", f"{total_goals_all}", f"On Target: {total_on_target_all}"),
                 ], blurred=True)
@@ -2119,30 +2119,30 @@ with tab_dash:
         col_s1, col_s2, col_s3 = st.columns(3)
         if force_avg:
             with col_s1:
-                section_card("📋 Pass Overview", PASS_TONES[0], [
+                section_card("Pass Overview", PASS_TONES[0], [
                     ("Total Passes", f"{s_game['total_p90']:.2f}"),
                     ("Successful %", f"{s_game['accuracy_pct']:.2f}%"),
                 ], blurred=True)
             with col_s2:
-                section_card("📊 Advanced", PASS_TONES[1], [
+                section_card("Advanced", PASS_TONES[1], [
                     ("Advanced Passes", f"{s_game['adv_p90']:.2f}"),
                     ("Advanced Acc %", f"{s_game['adv_acc_pct']:.2f}%", f"({s_real['adv_made']}/{s_real['adv_att']})"),
                 ], blurred=True)
             with col_s3:
-                section_card("⚡ Impact", PASS_TONES[2], [
+                section_card("Pass Impact", PASS_TONES[2], [
                     ("% Positive Impact", f"{s_game['pos_pct']:.2f}%"),
                     ("Pass Impact Value", f"{s_game['xt_p90']:.3f}"),
                 ], blurred=True)
         else:
             with col_s1:
-                cmp_section_card("📋 Pass Overview", PASS_TONES[0], [
+                cmp_section_card("Pass Overview", PASS_TONES[0], [
                     ("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}",
                      f"{s_game['total_p90']:.1f}", f"{s_avg['total_p90']:.1f}", ""),
                     ("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
                      f"{s_game['accuracy_pct']:.1f}%", f"{s_avg['accuracy_pct']:.1f}%", ""),
                 ], blurred=True)
             with col_s2:
-                cmp_section_card("📊 Advanced", PASS_TONES[1], [
+                cmp_section_card("Advanced", PASS_TONES[1], [
                     ("Advanced Passes", s_game["adv_p90"], f"{s_avg['adv_p90']:.1f}",
                      f"{s_game['adv_p90']:.1f}", f"{s_avg['adv_p90']:.1f}", ""),
                     ("Advanced Acc %", s_game["adv_acc_pct"], s_avg["adv_acc_pct"],
@@ -2150,7 +2150,7 @@ with tab_dash:
                      f"({s_real['adv_made']}/{s_real['adv_att']})"),
                 ], blurred=True)
             with col_s3:
-                cmp_section_card("⚡ Impact", PASS_TONES[2], [
+                cmp_section_card("Pass Impact", PASS_TONES[2], [
                     ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
                      f"{s_game['pos_pct']:.1f}%", f"{s_avg['pos_pct']:.1f}%",
                      "Passes that generated a positive impact based on where they ended on the field"),
@@ -2220,30 +2220,30 @@ with tab_dash:
         col_ds1, col_ds2, col_ds3 = st.columns(3)
         if force_avg_def:
             with col_ds1:
-                section_card("🛡️ General", DEF_TONES[0], [
+                section_card("Overview", DEF_TONES[0], [
                     ("Defensive Actions", f"{d_game['total_actions_p90']:.2f}"),
                     ("Actions in Opp. Field", f"{d_game['actions_attacking_p90']:.2f}"),
                 ], blurred=True)
             with col_ds2:
-                section_card("⚔️ Duels", DEF_TONES[1], [
+                section_card("Defensive Duels", DEF_TONES[1], [
                     ("Defensive Duels", f"{d_game['duels_p90']:.2f}"),
                     ("% Duels Won", f"{d_game['duels_won_pct']:.2f}%", f"({d_real['duels_won']}/{d_real['total_duels']})"),
                 ], blurred=True)
             with col_ds3:
-                section_card("🛡️ Funnel Protection Actions", DEF_TONES[2], [
+                section_card("Funnel Protection Actions", DEF_TONES[2], [
                     ("Funnel Protection Actions", f"{d_game['funnel_actions_p90']:.2f}"),
                     ("% FPA Successful", f"{d_game['funnel_success_pct']:.2f}%", f"({d_real['funnel_successful']}/{d_real['funnel_actions']})"),
                 ], blurred=True)
         else:
             with col_ds1:
-                cmp_section_card("🛡️ General", DEF_TONES[0], [
+                cmp_section_card("Overview", DEF_TONES[0], [
                     ("Defensive Actions", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.1f}",
                      f"{d_game['total_actions_p90']:.1f}", f"{d_avg['total_actions_p90']:.1f}", ""),
                     ("Actions in Opp. Field", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}",
                      f"{d_game['actions_attacking_p90']:.1f}", f"{d_avg['actions_attacking_p90']:.1f}", ""),
                 ], blurred=True)
             with col_ds2:
-                cmp_section_card("⚔️ Duels", DEF_TONES[1], [
+                cmp_section_card("Defensive Duels", DEF_TONES[1], [
                     ("Defensive Duels", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}",
                      f"{d_game['duels_p90']:.1f}", f"{d_avg['duels_p90']:.1f}", ""),
                     ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"],
@@ -2251,7 +2251,7 @@ with tab_dash:
                      f"({d_real['duels_won']}/{d_real['total_duels']})"),
                 ], blurred=True)
             with col_ds3:
-                cmp_section_card("🛡️ Funnel Protection Actions", DEF_TONES[2], [
+                cmp_section_card("Funnel Protection Actions", DEF_TONES[2], [
                     ("Funnel Protection Actions", d_game["funnel_actions_p90"], f"{d_avg['funnel_actions_p90']:.1f}",
                      f"{d_game['funnel_actions_p90']:.1f}", f"{d_avg['funnel_actions_p90']:.1f}", ""),
                     ("% FPA Successful", d_game["funnel_success_pct"], d_avg["funnel_success_pct"],
@@ -2313,30 +2313,30 @@ with tab_dash:
         col_os1, col_os2, col_os3 = st.columns(3)
         if force_avg_off:
             with col_os1:
-                section_card("📋 Overview", OFF_TONES[0], [
+                section_card("Overview", OFF_TONES[0], [
                     ("Touches", f"{o_game['touches_p90']:.2f}"),
                     ("Final Third Touches", f"{o_game['f3_touches_p90']:.2f}"),
                 ], blurred=True)
             with col_os2:
-                section_card("⚔️ Offensive Duels", OFF_TONES[1], [
+                section_card("Offensive Duels", OFF_TONES[1], [
                     ("Offensive Duels", f"{o_game['off_duels_p90']:.2f}"),
                     ("% Duels Won", f"{o_game['off_duels_won_pct']:.2f}%", f"({o_real['off_duels_won']}/{o_real['off_duels']})"),
                 ], blurred=True)
             with col_os3:
-                section_card("🥅 Shots", OFF_TONES[2], [
+                section_card("Shots", OFF_TONES[2], [
                     ("Shots", f"{o_game['shots_p90']:.2f}"),
                     ("Goals", f"{o_game['goals']:.2f}"),
                 ], blurred=True)
         else:
             with col_os1:
-                cmp_section_card("📋 Overview", OFF_TONES[0], [
+                cmp_section_card("Overview", OFF_TONES[0], [
                     ("Touches", o_game["touches_p90"], f"{o_avg['touches_p90']:.1f}",
                      f"{o_game['touches_p90']:.1f}", f"{o_avg['touches_p90']:.1f}", ""),
                     ("Final Third Touches", o_game["f3_touches_p90"], f"{o_avg['f3_touches_p90']:.1f}",
                      f"{o_game['f3_touches_p90']:.1f}", f"{o_avg['f3_touches_p90']:.1f}", ""),
                 ], blurred=True)
             with col_os2:
-                cmp_section_card("⚔️ Offensive Duels", OFF_TONES[1], [
+                cmp_section_card("Offensive Duels", OFF_TONES[1], [
                     ("Offensive Duels", o_game["off_duels_p90"], f"{o_avg['off_duels_p90']:.1f}",
                      f"{o_game['off_duels_p90']:.1f}", f"{o_avg['off_duels_p90']:.1f}", ""),
                     ("% Duels Won", o_game["off_duels_won_pct"], o_avg["off_duels_won_pct"],
@@ -2344,7 +2344,7 @@ with tab_dash:
                      f"({o_real['off_duels_won']}/{o_real['off_duels']})"),
                 ], blurred=True)
             with col_os3:
-                cmp_section_card("🥅 Shots", OFF_TONES[2], [
+                cmp_section_card("Shots", OFF_TONES[2], [
                     ("Shots", o_game["shots_p90"], f"{o_avg['shots_p90']:.1f}",
                      f"{o_game['shots_p90']:.1f}", f"{o_avg['shots_p90']:.1f}", ""),
                     ("Goals", o_game["goals"], o_avg["goals"],
