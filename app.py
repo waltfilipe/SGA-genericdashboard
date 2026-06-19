@@ -957,7 +957,7 @@ def compute_offensive_stats(touches_df, duels_df, shots_df, match_name: str) -> 
     }
 
 # UI HELPERS
-_BLUR_BODY_STYLE = "filter:blur(6px);opacity:0.16;pointer-events:none;user-select:none;"
+_BLUR_BODY_STYLE = "filter:blur(4px);opacity:0.22;pointer-events:none;user-select:none;"
 _SGA_LOGO_B64 = None
 _SGA_LOGO_PATH = Path("sga data.png")
 
@@ -984,17 +984,25 @@ def _sga_logo_overlay_html():
     )
 
 
-def blur_image(img, radius=10):
+def blur_image(img, radius=7):
     return img.filter(ImageFilter.GaussianBlur(radius=radius))
 
 
-def _plotly_blur_overlay(height=460):
-    st.markdown(
-        f'<div style="margin-top:-{height}px;height:{height}px;position:relative;z-index:10;'
-        f'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);'
-        f'background:rgba(26,26,46,0.55);pointer-events:none"></div>',
-        unsafe_allow_html=True,
-    )
+def blur_image_with_logo(img, blur_radius=7, logo_width_ratio=0.42):
+    """Blur a pitch map and overlay the SGA logo centered on the image."""
+    blurred = blur_image(img, radius=blur_radius).convert("RGBA")
+    if _SGA_LOGO_PATH.exists():
+        logo = Image.open(_SGA_LOGO_PATH).convert("RGBA")
+        bw, bh = blurred.size
+        logo_w = max(48, int(bw * logo_width_ratio))
+        logo_h = max(1, int(logo.height * (logo_w / logo.width)))
+        logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+        alpha = logo.split()[3].point(lambda p: int(p * 0.92))
+        logo.putalpha(alpha)
+        x = (bw - logo_w) // 2
+        y = (bh - logo_h) // 2
+        blurred.paste(logo, (x, y), logo)
+    return blurred.convert("RGB")
 
 
 def _safe_pct_diff(a: float, b: float) -> float:
@@ -1601,6 +1609,26 @@ STATS_UNLOCKED = [k for k, v in STATS_METRICS.items() if not v[4]]
 STATS_LOCKED = [k for k, v in STATS_METRICS.items() if v[4]]
 
 
+def _metric_y_range(y, metric_label, suffix):
+    """Compute a padded y-axis range so each stat chart reads clearly."""
+    series = pd.Series(y, dtype=float)
+    y_min = float(series.min())
+    y_max = float(series.max())
+    is_pct = suffix == "%" or metric_label.endswith("%")
+    if is_pct:
+        pad = max(4.0, (y_max - y_min) * 0.12)
+        return max(0.0, y_min - pad), min(100.0, y_max + pad)
+    span = y_max - y_min
+    if span < 1e-9:
+        pad = max(abs(y_max) * 0.25, 0.5)
+    else:
+        pad = span * 0.16
+    floor = 0.0 if y_min >= 0 else y_min - pad
+    if metric_label == "Pass Impact Value":
+        floor = max(0.0, y_min - pad)
+    return floor, y_max + pad
+
+
 def draw_metric_chart(df_scores, metric_label="Total Passes", avg_mode="Average"):
     col, color, value_fmt, suffix, _locked = STATS_METRICS.get(
         metric_label, ("total_p90", "#00d2ff", ".1f", "", False)
@@ -1620,10 +1648,13 @@ def draw_metric_chart(df_scores, metric_label="Total Passes", avg_mode="Average"
         hovertemplate="%{customdata}<br>" + metric_label + ": %{y:" + value_fmt + "}" + suffix
     ))
     _avg_reference_traces(fig, x_labels, y, avg_mode, value_fmt)
+    y0, y1 = _metric_y_range(y, metric_label, suffix)
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
         height=320, margin=dict(l=20, r=20, t=40, b=20),
-        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        yaxis=dict(
+            range=[y0, y1], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False,
+        ),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text=metric_label, font=dict(size=14, color="#a0a0b5"))
@@ -1816,8 +1847,8 @@ with tab_graf:
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
             section_card("📋 Overview", PASS_TONES[0], [
-                ("Passes p90", f"{s_pass['total_p90']:.1f}", f"Match: {selected_summary_match}"),
-                ("Successful %", f"{s_pass['accuracy_pct']:.1f}%", f"Total: {s_pass['total_passes']}"),
+                ("Passes p90", f"{s_pass['total_p90']:.1f}", f"Total (4 matches): {total_passes_all}"),
+                ("Successful %", f"{s_pass['accuracy_pct']:.1f}%", f"Total (4 matches): {total_succ_all}"),
             ])
         with col_s2:
             section_card("📊 Advanced", PASS_TONES[1], [
@@ -1855,8 +1886,8 @@ with tab_graf:
             col_d1, col_d2, col_d3 = st.columns(3)
             with col_d1:
                 section_card("🛡️ General", DEF_TONES[0], [
-                    ("Defensive Actions p90", f"{s_def['total_actions_p90']:.1f}", f"Total: {s_def['total_actions']}"),
-                    ("Actions in Opp. Field p90", f"{s_def['actions_attacking_p90']:.1f}", f"Total: {s_def['actions_attacking']}"),
+                    ("Defensive Actions p90", f"{s_def['total_actions_p90']:.1f}", f"Total (4 matches): {total_def_actions_all}"),
+                    ("Actions in Opp. Field p90", f"{s_def['actions_attacking_p90']:.1f}", f"Total (4 matches): {total_def_att_all}"),
                 ])
             with col_d2:
                 section_card("⚔️ Duels", DEF_TONES[1], [
@@ -1888,8 +1919,8 @@ with tab_graf:
             col_o1, col_o2, col_o3 = st.columns(3)
             with col_o1:
                 section_card("📋 Overview", OFF_TONES[0], [
-                    ("Touches p90", f"{s_off['touches_p90']:.1f}", f"Total: {s_off['touches']}"),
-                    ("Final Third Touches p90", f"{s_off['f3_touches_p90']:.1f}", f"Total: {s_off['f3_touches']}"),
+                    ("Touches p90", f"{s_off['touches_p90']:.1f}", f"Total (4 matches): {total_touches_all}"),
+                    ("Final Third Touches p90", f"{s_off['f3_touches_p90']:.1f}", f"Total (4 matches): {total_f3_touches_all}"),
                 ])
             with col_o2:
                 section_card("⚔️ Offensive Duels", OFF_TONES[1], [
@@ -1926,21 +1957,7 @@ with tab_graf:
             st.plotly_chart(fig_metric, use_container_width=True)
 
         if not df_scores.empty:
-            st.markdown("### Grade per Match")
-            gcol1, gcol2 = st.columns(2)
-            with gcol1:
-                grade_choice = st.radio(
-                    "Grade", list(GRADE_OPTIONS.keys()),
-                    index=0, horizontal=True, key="grade_choice"
-                )
-            with gcol2:
-                grade_avg_mode = st.radio(
-                    "Reference Line", ["Average", "Moving Average"],
-                    index=0, horizontal=True, key="grade_avg_mode"
-                )
-            fig_scores = draw_grade_chart(df_scores, grade_choice, grade_avg_mode)
-            st.plotly_chart(fig_scores, use_container_width=True, key="grade_chart")
-            _plotly_blur_overlay()
+            st.markdown("### 🔒 Grade per Match")
 
             with st.expander("How is the Grade calculated?"):
                 st.markdown("""
@@ -2029,14 +2046,14 @@ with tab_dash:
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Pass Map</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_pm_game), use_container_width=True)
+            st.image(blur_image_with_logo(img_pm_game), use_container_width=True)
         with col_m2:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Zone Heatmap</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_ht_game), use_container_width=True)
+            st.image(blur_image_with_logo(img_ht_game), use_container_width=True)
         with col_m3:
             label = "Top 10" if force_avg else "Top 5"
             st.markdown(f'<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">{label} Pass Impact</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_xt_game), use_container_width=True)
+            st.image(blur_image_with_logo(img_xt_game), use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_s1, col_s2, col_s3 = st.columns(3)
@@ -2131,13 +2148,13 @@ with tab_dash:
         col_dm1, col_dm2, col_dm3 = st.columns(3)
         with col_dm1:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Actions Map</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_def_map), use_container_width=True)
+            st.image(blur_image_with_logo(img_def_map), use_container_width=True)
         with col_dm2:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Heatmap</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_def_hm), use_container_width=True)
+            st.image(blur_image_with_logo(img_def_hm), use_container_width=True)
         with col_dm3:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Funnel Protection Actions</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_funnel), use_container_width=True)
+            st.image(blur_image_with_logo(img_funnel), use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_ds1, col_ds2, col_ds3 = st.columns(3)
@@ -2224,13 +2241,13 @@ with tab_dash:
         col_om1, col_om2, col_om3 = st.columns(3)
         with col_om1:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Touches Heatmap</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_th_game), use_container_width=True)
+            st.image(blur_image_with_logo(img_th_game), use_container_width=True)
         with col_om2:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Offensive Duels Map</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_od_game), use_container_width=True)
+            st.image(blur_image_with_logo(img_od_game), use_container_width=True)
         with col_om3:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Shots Map</div>', unsafe_allow_html=True)
-            st.image(blur_image(img_sh_game), use_container_width=True)
+            st.image(blur_image_with_logo(img_sh_game), use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_os1, col_os2, col_os3 = st.columns(3)
