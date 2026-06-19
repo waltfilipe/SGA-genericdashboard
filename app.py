@@ -984,11 +984,11 @@ def _sga_logo_overlay_html():
     )
 
 
-def blur_image(img, radius=7):
+def blur_image(img, radius=10):
     return img.filter(ImageFilter.GaussianBlur(radius=radius))
 
 
-def blur_image_with_logo(img, blur_radius=7, logo_width_ratio=0.42):
+def blur_image_with_logo(img, blur_radius=10, logo_width_ratio=0.42):
     """Blur a pitch map and overlay the SGA logo centered on a black backdrop."""
     blurred = blur_image(img, radius=blur_radius).convert("RGBA")
     if _SGA_LOGO_PATH.exists():
@@ -997,17 +997,25 @@ def blur_image_with_logo(img, blur_radius=7, logo_width_ratio=0.42):
         logo_w = max(48, int(bw * logo_width_ratio))
         logo_h = max(1, int(logo.height * (logo_w / logo.width)))
         logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
-        alpha = logo.split()[3].point(lambda p: int(p * 0.95))
+        alpha = logo.split()[3].point(lambda p: int(p * 0.98))
         logo.putalpha(alpha)
-        pad_x, pad_y = 14, 10
+        pad_x, pad_y = 16, 12
         badge_w = logo_w + pad_x * 2
         badge_h = logo_h + pad_y * 2
-        badge = Image.new("RGBA", (badge_w, badge_h), (0, 0, 0, 230))
+        badge = Image.new("RGBA", (badge_w, badge_h), (0, 0, 0, 255))
         badge.paste(logo, (pad_x, pad_y), logo)
         x = (bw - badge_w) // 2
         y = (bh - badge_h) // 2
         blurred.paste(badge, (x, y), badge)
     return blurred.convert("RGB")
+
+
+def _locked_map_title(label):
+    st.markdown(
+        f'<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;'
+        f'color:#c7cdda;letter-spacing:0.2px">🔒 {label}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _safe_pct_diff(a: float, b: float) -> float:
@@ -1790,11 +1798,14 @@ def draw_comparison_bar(title, val_first, val_last, suffix="", elegant=None, cat
 _LOGO_SGA_HORIZONTAL = Path("Logo_SGA_Completa_Horizontal_Branco (1).png")
 
 st.sidebar.markdown("""
-<div style="text-align:center;padding:10px 4px 6px 4px">
-    <div style="font-size:15px;font-weight:700;letter-spacing:1.2px;color:#eef1f7;line-height:1.35">
-        SGA - Generic Dashboard
-    </div>
+<div style="padding:18px 12px 6px 12px">
+    <div style="font-size:11px;font-weight:600;letter-spacing:2.2px;text-transform:uppercase;
+                color:#7c8499;text-align:center;margin-bottom:8px">Performance</div>
+    <div style="font-size:15px;font-weight:700;color:#f3f4f8;text-align:center;line-height:1.35;
+                letter-spacing:0.3px">SGA · Generic Dashboard</div>
 </div>
+<div style="height:1px;margin:14px 10px 16px 10px;
+            background:linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent)"></div>
 """, unsafe_allow_html=True)
 
 if _LOGO_SGA_HORIZONTAL.exists():
@@ -1804,10 +1815,8 @@ if _SGA_LOGO_PATH.exists():
     st.sidebar.image(str(_SGA_LOGO_PATH), use_container_width=True)
 
 st.sidebar.markdown("""
-<div style="text-align:center;margin:10px 0 14px 0">
-    <div style="font-size:16px;font-weight:600;color:#e0e0f0">Generic Player</div>
-</div>
-<div style="border-bottom:1px solid #2a2a3e;margin:0 0 12px 0"></div>
+<div style="height:1px;margin:0 10px 14px 10px;
+            background:linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)"></div>
 """, unsafe_allow_html=True)
 
 num_matches = len(dfs_by_match)
@@ -2019,33 +2028,6 @@ with tab_graf:
         if not df_scores.empty:
             st.markdown("### 🔒 Grade per Match")
 
-            with st.expander("How is the Grade calculated?"):
-                st.markdown("""
-**Combined Grade** = average (equal weights) of **Pass Grade**, **Defensive Grade** and **Offensive Grade**.
-
-**Pass Grade**
-- **Pass Impact:** Measures actual danger created by passes.
-- **Progressive Passes:** Line-breaking ability.
-- **Final Third Passes:** Attacking presence in dangerous zones.
-- **% Positive Pass Impact:** Efficiency of threat generation.
-- **Total Passes:** Overall involvement.
-- **Negative Pass Impact:** Penalty for passes that lose threat.
-
-**Defensive Grade**
-- **Duels Won %:** Rewards efficiency in defensive duels.
-- **Funnel Defensive Actions:** Rewards actions in the defensive funnel zone.
-- **Interception xT:** Rewards interceptions in high-threat zones.
-- **Duels Won Count:** Rewards volume of duels won.
-- **Interceptions Count:** Rewards volume of interceptions.
-
-**Offensive Grade**
-- **Touches:** Overall offensive involvement.
-- **Final Third Touches:** Presence in dangerous areas.
-- **Offensive Duels Won %:** Efficiency in 1v1 attacking duels.
-- **Shots:** Shot volume / threat generated.
-- **Finishing (Shots on Target %):** Shooting accuracy.
-""")
-
 with tab_dash:
     sub_tab_passes, sub_tab_def, sub_tab_off = st.tabs(["Passes", "Defensive Actions", "Offensive Actions"])
 
@@ -2105,14 +2087,14 @@ with tab_dash:
 
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Pass Map</div>', unsafe_allow_html=True)
+            _locked_map_title("Pass Map")
             st.image(blur_image_with_logo(img_pm_game), use_container_width=True)
         with col_m2:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Zone Heatmap</div>', unsafe_allow_html=True)
+            _locked_map_title("Zone Heatmap")
             st.image(blur_image_with_logo(img_ht_game), use_container_width=True)
         with col_m3:
             label = "Top 10" if force_avg else "Top 5"
-            st.markdown(f'<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">{label} Pass Impact</div>', unsafe_allow_html=True)
+            _locked_map_title(f"{label} Pass Impact")
             st.image(blur_image_with_logo(img_xt_game), use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
@@ -2207,13 +2189,13 @@ with tab_dash:
 
         col_dm1, col_dm2, col_dm3 = st.columns(3)
         with col_dm1:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Actions Map</div>', unsafe_allow_html=True)
+            _locked_map_title("Defensive Actions Map")
             st.image(blur_image_with_logo(img_def_map), use_container_width=True)
         with col_dm2:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Heatmap</div>', unsafe_allow_html=True)
+            _locked_map_title("Defensive Heatmap")
             st.image(blur_image_with_logo(img_def_hm), use_container_width=True)
         with col_dm3:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Funnel Protection Actions</div>', unsafe_allow_html=True)
+            _locked_map_title("Funnel Protection Actions")
             st.image(blur_image_with_logo(img_funnel), use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
@@ -2300,13 +2282,13 @@ with tab_dash:
 
         col_om1, col_om2, col_om3 = st.columns(3)
         with col_om1:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Touches Heatmap</div>', unsafe_allow_html=True)
+            _locked_map_title("Touches Heatmap")
             st.image(blur_image_with_logo(img_th_game), use_container_width=True)
         with col_om2:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Offensive Duels Map</div>', unsafe_allow_html=True)
+            _locked_map_title("Offensive Duels Map")
             st.image(blur_image_with_logo(img_od_game), use_container_width=True)
         with col_om3:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Shots Map</div>', unsafe_allow_html=True)
+            _locked_map_title("Shots Map")
             st.image(blur_image_with_logo(img_sh_game), use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
