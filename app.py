@@ -989,7 +989,7 @@ def blur_image(img, radius=7):
 
 
 def blur_image_with_logo(img, blur_radius=7, logo_width_ratio=0.42):
-    """Blur a pitch map and overlay the SGA logo centered on the image."""
+    """Blur a pitch map and overlay the SGA logo centered on a black backdrop."""
     blurred = blur_image(img, radius=blur_radius).convert("RGBA")
     if _SGA_LOGO_PATH.exists():
         logo = Image.open(_SGA_LOGO_PATH).convert("RGBA")
@@ -997,11 +997,16 @@ def blur_image_with_logo(img, blur_radius=7, logo_width_ratio=0.42):
         logo_w = max(48, int(bw * logo_width_ratio))
         logo_h = max(1, int(logo.height * (logo_w / logo.width)))
         logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
-        alpha = logo.split()[3].point(lambda p: int(p * 0.92))
+        alpha = logo.split()[3].point(lambda p: int(p * 0.95))
         logo.putalpha(alpha)
-        x = (bw - logo_w) // 2
-        y = (bh - logo_h) // 2
-        blurred.paste(logo, (x, y), logo)
+        pad_x, pad_y = 14, 10
+        badge_w = logo_w + pad_x * 2
+        badge_h = logo_h + pad_y * 2
+        badge = Image.new("RGBA", (badge_w, badge_h), (0, 0, 0, 230))
+        badge.paste(logo, (pad_x, pad_y), logo)
+        x = (bw - badge_w) // 2
+        y = (bh - badge_h) // 2
+        blurred.paste(badge, (x, y), badge)
     return blurred.convert("RGB")
 
 
@@ -1610,23 +1615,29 @@ STATS_LOCKED = [k for k, v in STATS_METRICS.items() if v[4]]
 
 
 def _metric_y_range(y, metric_label, suffix):
-    """Compute a padded y-axis range so each stat chart reads clearly."""
+    """Compute a padded y-axis range anchored near the data, not always at zero."""
     series = pd.Series(y, dtype=float)
     y_min = float(series.min())
     y_max = float(series.max())
     is_pct = suffix == "%" or metric_label.endswith("%")
+    span = max(y_max - y_min, abs(y_max) * 0.08, 1e-9)
+    pad_above = max(span * 0.18, abs(y_max) * 0.05, 0.5)
     if is_pct:
-        pad = max(4.0, (y_max - y_min) * 0.12)
-        return max(0.0, y_min - pad), min(100.0, y_max + pad)
-    span = y_max - y_min
-    if span < 1e-9:
-        pad = max(abs(y_max) * 0.25, 0.5)
-    else:
-        pad = span * 0.16
-    floor = 0.0 if y_min >= 0 else y_min - pad
-    if metric_label == "Pass Impact Value":
-        floor = max(0.0, y_min - pad)
-    return floor, y_max + pad
+        pad_below = max(span * 0.22, 3.0)
+        y0 = max(0.0, y_min - pad_below)
+        y1 = min(100.0, y_max + pad_above)
+        return y0, y1
+    pad_below = max(span * 1.0, y_min * 0.35, 4.0)
+    y0 = y_min - pad_below
+    if y_min >= 0:
+        if y0 > 10:
+            y0 = math.floor(y0 / 5.0) * 5.0
+        else:
+            y0 = max(0.0, y0)
+    y1 = y_max + pad_above
+    if metric_label == "Pass Impact Value" and y_min >= 0:
+        y0 = max(0.0, y0)
+    return y0, y1
 
 
 def draw_metric_chart(df_scores, metric_label="Total Passes", avg_mode="Average"):
@@ -1643,7 +1654,6 @@ def draw_metric_chart(df_scores, metric_label="Total Passes", avg_mode="Average"
         mode='lines+markers',
         line=dict(color=color, width=3, shape='spline'),
         marker=dict(size=8, color=color),
-        fill='tozeroy', fillcolor=f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.05)',
         name=metric_label,
         hovertemplate="%{customdata}<br>" + metric_label + ": %{y:" + value_fmt + "}" + suffix
     ))
@@ -1777,22 +1787,27 @@ def draw_comparison_bar(title, val_first, val_last, suffix="", elegant=None, cat
     return fig
 
 # SIDEBAR
+_LOGO_SGA_HORIZONTAL = Path("Logo_SGA_Completa_Horizontal_Branco (1).png")
+
 st.sidebar.markdown("""
-<div style="text-align:center;padding:8px 0 4px 0">
-    <div style="font-size:20px;font-weight:300;letter-spacing:2px;color:#a0a0b5;text-transform:uppercase">Pass Stats</div>
-    <div style="font-size:13px;font-weight:600;color:#ffffff;margin-top:-2px">Dashboard</div>
+<div style="text-align:center;padding:10px 4px 6px 4px">
+    <div style="font-size:15px;font-weight:700;letter-spacing:1.2px;color:#eef1f7;line-height:1.35">
+        SGA - Generic Dashboard
+    </div>
 </div>
-<div style="border-bottom:1px solid #2a2a3e;margin:6px 0 12px 0"></div>
-<div style="font-size:11px;font-weight:500;letter-spacing:1px;color:#6b6b80;text-transform:uppercase;margin:0 10px 6px 10px">2026 Season</div>
-<div style="font-size:16px;font-weight:600;color:#e0e0f0;margin:0 10px 12px 10px">Generic Player</div>
 """, unsafe_allow_html=True)
 
-img_path = "player_photo.png"
-if os.path.exists(img_path):
-    st.sidebar.image(img_path, use_container_width=True)
+if _LOGO_SGA_HORIZONTAL.exists():
+    st.sidebar.image(str(_LOGO_SGA_HORIZONTAL), use_container_width=True)
+
+if _SGA_LOGO_PATH.exists():
+    st.sidebar.image(str(_SGA_LOGO_PATH), use_container_width=True)
 
 st.sidebar.markdown("""
-<div style="border-bottom:1px solid #2a2a3e;margin:16px 0 8px 0"></div>
+<div style="text-align:center;margin:10px 0 14px 0">
+    <div style="font-size:16px;font-weight:600;color:#e0e0f0">Generic Player</div>
+</div>
+<div style="border-bottom:1px solid #2a2a3e;margin:0 0 12px 0"></div>
 """, unsafe_allow_html=True)
 
 num_matches = len(dfs_by_match)
@@ -1810,25 +1825,36 @@ OFF_DICTS = (touches_dfs_by_match, offensive_duels_dfs_by_match, shots_dfs_by_ma
 tab_graf, tab_dash = st.tabs(["Charts & Analysis", "Detailed Dashboard"])
 
 with tab_graf:
-    match_names = list(dfs_by_match.keys())
+    summary_match_options = ["All Matches"] + list(dfs_by_match.keys())
     selected_summary_match = st.selectbox(
-        "Select Match", options=match_names, index=0, key="summary_match"
+        "Select Match", options=summary_match_options, index=0, key="summary_match"
     )
+    is_all_summary = selected_summary_match == "All Matches"
 
     df_scores = compute_match_scores(dfs_by_match, defensive_dfs_by_match, OFF_DICTS)
 
     st.markdown("### Overall Performance Summary")
     if num_matches > 0:
-        s_pass = compute_stats(dfs_by_match[selected_summary_match], selected_summary_match)
-        s_def = compute_defensive_stats(
-            defensive_dfs_by_match[selected_summary_match], selected_summary_match
-        )
-        s_off = compute_offensive_stats(
-            touches_dfs_by_match[selected_summary_match],
-            offensive_duels_dfs_by_match[selected_summary_match],
-            shots_dfs_by_match[selected_summary_match],
-            selected_summary_match,
-        )
+        if is_all_summary:
+            df_pass_all = pd.concat(dfs_by_match.values(), ignore_index=True)
+            df_def_all = pd.concat(defensive_dfs_by_match.values(), ignore_index=True)
+            touches_all = pd.concat(touches_dfs_by_match.values(), ignore_index=True)
+            duels_all = pd.concat(offensive_duels_dfs_by_match.values(), ignore_index=True)
+            shots_all = pd.concat(shots_dfs_by_match.values(), ignore_index=True)
+            s_pass = compute_stats(df_pass_all, "All Matches")
+            s_def = compute_defensive_stats(df_def_all, "All Matches")
+            s_off = compute_offensive_stats(touches_all, duels_all, shots_all, "All Matches")
+        else:
+            s_pass = compute_stats(dfs_by_match[selected_summary_match], selected_summary_match)
+            s_def = compute_defensive_stats(
+                defensive_dfs_by_match[selected_summary_match], selected_summary_match
+            )
+            s_off = compute_offensive_stats(
+                touches_dfs_by_match[selected_summary_match],
+                offensive_duels_dfs_by_match[selected_summary_match],
+                shots_dfs_by_match[selected_summary_match],
+                selected_summary_match,
+            )
 
         total_passes_all = sum(s['total_passes'] for s in all_match_stats)
         total_succ_all = sum(s['successful_passes'] for s in all_match_stats)
@@ -1842,13 +1868,25 @@ with tab_graf:
         total_adv_att_all = sum(s['adv_att'] for s in all_match_stats)
         avg_adv_p90 = sum(s['adv_p90'] for s in all_match_stats) / num_matches
         avg_adv_acc = sum(s['adv_acc_pct'] for s in all_match_stats) / num_matches
+        overall_acc_pct = (total_succ_all / total_passes_all * 100.0) if total_passes_all > 0 else 0.0
+
+        if is_all_summary:
+            pass_main_1 = f"{total_passes_all}"
+            pass_sub_1 = f"Avg: {avg_total_p90:.1f} p90"
+            pass_main_2 = f"{overall_acc_pct:.1f}%"
+            pass_sub_2 = f"Avg: {avg_acc:.1f}%"
+        else:
+            pass_main_1 = f"{s_pass['total_p90']:.1f}"
+            pass_sub_1 = f"Total: {s_pass['total_passes']}"
+            pass_main_2 = f"{s_pass['accuracy_pct']:.1f}%"
+            pass_sub_2 = f"Total: {s_pass['successful_passes']}"
 
         st.markdown("### Passes")
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
             section_card("📋 Overview", PASS_TONES[0], [
-                ("Passes p90", f"{s_pass['total_p90']:.1f}", f"Total (4 matches): {total_passes_all}"),
-                ("Successful %", f"{s_pass['accuracy_pct']:.1f}%", f"Total (4 matches): {total_succ_all}"),
+                ("Passes p90" if not is_all_summary else "Passes", pass_main_1, pass_sub_1),
+                ("Successful %", pass_main_2, pass_sub_2),
             ])
         with col_s2:
             section_card("📊 Advanced", PASS_TONES[1], [
@@ -1882,12 +1920,23 @@ with tab_graf:
             avg_funnel_p90 = sum(s['funnel_actions_p90'] for s in defensive_all_stats) / defensive_num_matches
             avg_funnel_success_pct = sum(s['funnel_success_pct'] for s in defensive_all_stats) / defensive_num_matches
 
+            if is_all_summary:
+                def_main_1 = f"{total_def_actions_all}"
+                def_sub_1 = f"Avg: {avg_def_actions_p90:.1f} p90"
+                def_main_2 = f"{total_def_att_all}"
+                def_sub_2 = f"Avg: {avg_def_att_p90:.1f} p90"
+            else:
+                def_main_1 = f"{s_def['total_actions_p90']:.1f}"
+                def_sub_1 = f"Total: {s_def['total_actions']}"
+                def_main_2 = f"{s_def['actions_attacking_p90']:.1f}"
+                def_sub_2 = f"Total: {s_def['actions_attacking']}"
+
             st.markdown("### Defensive Actions")
             col_d1, col_d2, col_d3 = st.columns(3)
             with col_d1:
                 section_card("🛡️ General", DEF_TONES[0], [
-                    ("Defensive Actions p90", f"{s_def['total_actions_p90']:.1f}", f"Total (4 matches): {total_def_actions_all}"),
-                    ("Actions in Opp. Field p90", f"{s_def['actions_attacking_p90']:.1f}", f"Total (4 matches): {total_def_att_all}"),
+                    ("Defensive Actions p90" if not is_all_summary else "Defensive Actions", def_main_1, def_sub_1),
+                    ("Actions in Opp. Field p90" if not is_all_summary else "Actions in Opp. Field", def_main_2, def_sub_2),
                 ])
             with col_d2:
                 section_card("⚔️ Duels", DEF_TONES[1], [
@@ -1915,12 +1964,23 @@ with tab_graf:
             avg_off_duels_won_pct = sum(s['off_duels_won_pct'] for s in offensive_all_stats) / offensive_num_matches
             avg_shots_p90 = sum(s['shots_p90'] for s in offensive_all_stats) / offensive_num_matches
 
+            if is_all_summary:
+                off_main_1 = f"{total_touches_all}"
+                off_sub_1 = f"Avg: {avg_touches_p90:.1f} p90"
+                off_main_2 = f"{total_f3_touches_all}"
+                off_sub_2 = f"Avg: {avg_f3_touches_p90:.1f} p90"
+            else:
+                off_main_1 = f"{s_off['touches_p90']:.1f}"
+                off_sub_1 = f"Total: {s_off['touches']}"
+                off_main_2 = f"{s_off['f3_touches_p90']:.1f}"
+                off_sub_2 = f"Total: {s_off['f3_touches']}"
+
             st.markdown("### Offensive Actions")
             col_o1, col_o2, col_o3 = st.columns(3)
             with col_o1:
                 section_card("📋 Overview", OFF_TONES[0], [
-                    ("Touches p90", f"{s_off['touches_p90']:.1f}", f"Total (4 matches): {total_touches_all}"),
-                    ("Final Third Touches p90", f"{s_off['f3_touches_p90']:.1f}", f"Total (4 matches): {total_f3_touches_all}"),
+                    ("Touches p90" if not is_all_summary else "Touches", off_main_1, off_sub_1),
+                    ("Final Third Touches p90" if not is_all_summary else "Final Third Touches", off_main_2, off_sub_2),
                 ])
             with col_o2:
                 section_card("⚔️ Offensive Duels", OFF_TONES[1], [
